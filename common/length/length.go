@@ -40,4 +40,4 @@ const (
 )
 
 // BufIO constant is for bufio.NewReaderSize and bufio.NewWriterSize. Default: 4Kb. Increasing over `256Kb` doesn't speedup on SSD/NVMe, but speedup on CloudDrives (like: gp3, pd-ssd)
-const BufIO = 32 * 1024
+const BufIO = 16 * 1024
