@@ -204,7 +204,7 @@ func OpenFilter(filePath string, useFuse bool) (idx *Filter, err error) {
 		return idx, nil
 	}
 	filter := new(bloomfilter.Filter)
-	_, err = filter.UnmarshalFromReaderNoVerify(bufio.NewReaderSize(f, length.BufIOSize))
+	_, err = filter.UnmarshalFromReaderNoVerify(bufio.NewReaderSize(f, length.BufIO))
 	if err != nil {
 		return nil, fmt.Errorf("OpenFilter: %w, %s", err, fileName)
 	}

@@ -1964,7 +1964,7 @@ func doDecompressSpeed(cliCtx *cli.Context) error {
 
 		t := time.Now()
 		g := decompressor.MakeGetter()
-		buf := make([]byte, 0, 16*length.BufIOSize)
+		buf := make([]byte, 0, 16*length.BufIO)
 		for g.HasNext() {
 			buf, _ = g.Next(buf[:0])
 		}

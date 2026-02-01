@@ -268,7 +268,7 @@ func (btw *BtIndexWriter) Build() error {
 		return fmt.Errorf("create temp index file for %s: %w", btw.args.IndexFile, err)
 	}
 	defer btw.indexF.Close()
-	btw.indexW = bufio.NewWriterSize(btw.indexF, length.BufIOSize)
+	btw.indexW = bufio.NewWriterSize(btw.indexF, length.BufIO)
 
 	defer btw.collector.Close()
 	log.Log(btw.args.Lvl, "[index] calculating", "file", btw.indexFileName)

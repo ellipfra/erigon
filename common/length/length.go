@@ -39,5 +39,5 @@ const (
 	Incarnation = 8
 )
 
-// BufIOSize - 128 pages | default is 1 page | increasing over `64 * 4096` doesn't show speedup on SSD/NVMe, but show speedup in cloud drives
-const BufIOSize = 4 * 4096
+// BufIO constant is for bufio.NewReaderSize and bufio.NewWriterSize. Default: 4Kb. Increasing over `256Kb` doesn't speedup on SSD/NVMe, but speedup on CloudDrives (like: gp3, pd-ssd)
+const BufIO = 32 * 1024

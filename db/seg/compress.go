@@ -901,7 +901,7 @@ func NewRawWordsFile(filePath string) (*RawWordsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := bufio.NewWriterSize(f, length.BufIOSize)
+	w := bufio.NewWriterSize(f, length.BufIO)
 	return &RawWordsFile{filePath: filePath, f: f, w: w, buf: make([]byte, 128)}, nil
 }
 func OpenRawWordsFile(filePath string) (*RawWordsFile, error) {
@@ -909,7 +909,7 @@ func OpenRawWordsFile(filePath string) (*RawWordsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := bufio.NewWriterSize(f, length.BufIOSize)
+	w := bufio.NewWriterSize(f, length.BufIO)
 	return &RawWordsFile{filePath: filePath, f: f, w: w, buf: make([]byte, 128)}, nil
 }
 func (f *RawWordsFile) Flush() error {
@@ -963,7 +963,7 @@ func (f *RawWordsFile) ForEach(walker func(v []byte, compressed bool) error) err
 	if err != nil {
 		return err
 	}
-	r := bufio.NewReaderSize(f.f, int(length.BufIOSize))
+	r := bufio.NewReaderSize(f.f, int(length.BufIO))
 	buf := make([]byte, 16*1024)
 	l, e := binary.ReadUvarint(r)
 	for ; e == nil; l, e = binary.ReadUvarint(r) {
