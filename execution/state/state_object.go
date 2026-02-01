@@ -20,6 +20,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"maps"
@@ -157,6 +158,12 @@ func (so *stateObject) GetState(key accounts.StorageKey) (uint256.Int, bool) {
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
+func (so *stateObject) GetOriginState(key accounts.StorageKey) (uint256.Int, bool) {
+	value, cached := so.originStorage[key]
+	return value, cached
+}
+
+// GetCommittedState retrieves a value from the committed account storage trie.
 func (so *stateObject) GetCommittedState(key accounts.StorageKey) (uint256.Int, error) {
 	// If the fake storage is set, only lookup the state here (in the debugging mode)
 	if so.fakeStorage != nil {
@@ -176,9 +183,14 @@ func (so *stateObject) GetCommittedState(key accounts.StorageKey) (uint256.Int, 
 	if dbg.TraceDomainIO || (dbg.TraceTransactionIO && (so.db.trace || dbg.TraceAccount(so.address.Handle()))) {
 		so.db.stateReader.SetTrace(true, fmt.Sprintf("%d (%d.%d)", so.db.blockNum, so.db.txIndex, so.db.version))
 	}
-	readStart := time.Now()
+	var readStart time.Time
+	if dbg.KVReadLevelledMetrics {
+		readStart = time.Now()
+	}
 	res, ok, err := so.db.stateReader.ReadAccountStorage(so.address, key)
-	so.db.storageReadDuration += time.Since(readStart)
+	if dbg.KVReadLevelledMetrics {
+		so.db.storageReadDuration += time.Since(readStart)
+	}
 	so.db.storageReadCount++
 	so.db.stateReader.SetTrace(false, "")
 
@@ -197,7 +209,7 @@ func (so *stateObject) GetCommittedState(key accounts.StorageKey) (uint256.Int, 
 }
 
 // SetState updates a value in account storage.
-func (so *stateObject) SetState(key accounts.StorageKey, value uint256.Int, force bool) bool {
+func (so *stateObject) SetState(key accounts.StorageKey, value uint256.Int, force bool) (_ bool, err error) {
 	// If the fake storage is set, put the temporary state update here.
 	if so.fakeStorage != nil {
 		so.db.journal.append(fakeStorageChange{
@@ -206,14 +218,15 @@ func (so *stateObject) SetState(key accounts.StorageKey, value uint256.Int, forc
 			prevalue: so.fakeStorage[key],
 		})
 		so.fakeStorage[key] = value
-		return true
+		return true, nil
 	}
 	// If the new value is the same as old, don't set
 	var prev uint256.Int
 	var commited bool
+	var source ReadSource
 
 	// we need to use versioned read here otherwise we will miss versionmap entries
-	prev, _, _, _ = versionedRead(so.db, so.address, StoragePath, key, false, u256.N0,
+	prev, source, _, err = versionedRead(so.db, so.address, StoragePath, key, false, u256.N0,
 		func(v uint256.Int) uint256.Int {
 			return v
 		},
@@ -225,8 +238,12 @@ func (so *stateObject) SetState(key accounts.StorageKey, value uint256.Int, forc
 			return value, nil
 		})
 
-	if !force && prev == value {
-		return false
+	if err != nil {
+		return false, err
+	}
+
+	if !force && source != UnknownSource && prev == value {
+		return false, nil
 	}
 
 	// New value is different, update and journal the change
@@ -242,7 +259,7 @@ func (so *stateObject) SetState(key accounts.StorageKey, value uint256.Int, forc
 	}
 	so.setState(key, value)
 
-	return true
+	return true, nil
 }
 
 // SetStorage replaces the entire state storage with the given one.
@@ -358,10 +375,15 @@ func (so *stateObject) Code() ([]byte, error) {
 	if dbg.TraceDomainIO || (dbg.TraceTransactionIO && (so.db.trace || dbg.TraceAccount(so.address.Handle()))) {
 		so.db.stateReader.SetTrace(true, fmt.Sprintf("%d (%d.%d)", so.db.blockNum, so.db.txIndex, so.db.version))
 	}
-	readStart := time.Now()
+	var readStart time.Time
+	if dbg.KVReadLevelledMetrics {
+		readStart = time.Now()
+	}
 	code, err := so.db.stateReader.ReadAccountCode(so.Address())
-	so.db.codeReadDuration += time.Since(readStart)
-	so.db.codeReadCount++
+	if dbg.KVReadLevelledMetrics {
+		so.db.codeReadDuration += time.Since(readStart)
+		so.db.codeReadCount++
+	}
 	so.db.stateReader.SetTrace(false, "")
 
 	if err != nil {
@@ -371,11 +393,16 @@ func (so *stateObject) Code() ([]byte, error) {
 	return code, nil
 }
 
-func (so *stateObject) SetCode(codeHash accounts.CodeHash, code []byte, wasCommited bool) error {
+func (so *stateObject) SetCode(codeHash accounts.CodeHash, code []byte, wasCommited bool) (bool, error) {
 	prevcode, err := so.Code()
 	if err != nil {
-		return err
+		return false, err
 	}
+
+	if bytes.Equal(prevcode, code) {
+		return false, nil
+	}
+
 	so.db.journal.append(codeChange{
 		account:     so.address,
 		prevhash:    so.data.CodeHash,
@@ -386,7 +413,7 @@ func (so *stateObject) SetCode(codeHash accounts.CodeHash, code []byte, wasCommi
 		so.db.tracingHooks.OnCodeChange(so.address, so.data.CodeHash, prevcode, codeHash, code)
 	}
 	so.setCode(codeHash, code)
-	return nil
+	return true, nil
 }
 
 func (so *stateObject) setCode(codeHash accounts.CodeHash, code []byte) {
