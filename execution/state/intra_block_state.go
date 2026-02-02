@@ -306,7 +306,7 @@ func (sdb *IntraBlockState) Reset() {
 	sdb.stateObjects = map[accounts.Address]*stateObject{}
 	sdb.stateObjectsDirty = map[accounts.Address]struct{}{}
 	for i := range sdb.logs {
-		clear(sdb.logs[i]) // free p¬ointers
+		clear(sdb.logs[i]) // free pointers
 		sdb.logs[i] = sdb.logs[i][:0]
 	}
 	sdb.balanceInc = map[accounts.Address]*BalanceIncrease{}
@@ -324,6 +324,40 @@ func (sdb *IntraBlockState) Reset() {
 	sdb.storageReadCount = 0
 	sdb.codeReadDuration = 0
 	sdb.codeReadCount = 0
+	sdb.dep = UnknownDep
+}
+
+// FullReset clears the state and prepares it for reuse with a new state reader.
+// This is useful for pooling IntraBlockState objects to reduce allocations.
+func (sdb *IntraBlockState) FullReset(stateReader StateReader) {
+	sdb.stateReader = stateReader
+	clear(sdb.stateObjects)
+	clear(sdb.stateObjectsDirty)
+	clear(sdb.nilAccounts)
+	sdb.refund = 0
+	sdb.txIndex = 0
+	sdb.blockNum = 0
+	sdb.logs = sdb.logs[:0]
+	sdb.logSize = 0
+	sdb.journal.Reset()
+	clear(sdb.accessList.addresses)
+	clear(sdb.transientStorage)
+	sdb.revisions = sdb.revisions.put() // return to pool
+	sdb.trace = false
+	sdb.tracingHooks = nil
+	clear(sdb.balanceInc)
+	sdb.addressAccess = nil
+	sdb.recordAccess = false
+	sdb.versionMap = nil
+	sdb.versionedWrites = nil
+	sdb.versionedReads = nil
+	sdb.accountReadDuration = 0
+	sdb.accountReadCount = 0
+	sdb.storageReadDuration = 0
+	sdb.storageReadCount = 0
+	sdb.codeReadDuration = 0
+	sdb.codeReadCount = 0
+	sdb.version = 0
 	sdb.dep = UnknownDep
 }
 
